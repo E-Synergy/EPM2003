@@ -1,9 +1,4 @@
-def Richard():
-  print(f"Tekken said Hi")
-  
-
-
+reversed = 'Hello from User B'
 
 print('Hello from User A')
-Richard()
 print('Hello from User B')
