@@ -24,12 +24,23 @@ DallasTemperature sensors(&oneWire);
 // LCD setup (0x27 address, 16x2)
 LiquidCrystal_I2C lcd(0x27, 16, 2);
 
+// Relay setup
+const int relayPin = 5; // GPIO5 (D1)
+bool valveOpen = false;
+unsigned long valveStart = 0;
+const unsigned long valveDuration = 10UL * 60UL * 1000UL; // 10 minutes
+
 // Time settings
 const long gmtOffset_sec = 8 * 3600;  // GMT+8 for Malaysia
 const int daylightOffset_sec = 0;
 
+// Timing
 unsigned long previousMillis = 0;
 const long interval = 15000;  // ThingSpeak requires at least 15 sec
+
+// Time trigger
+const int openHour = 14;
+const int openMinute = 0;
 
 void setupTime() {
   configTime(gmtOffset_sec, daylightOffset_sec, "pool.ntp.org", "time.nist.gov");
@@ -43,6 +54,9 @@ void setupTime() {
 
 void setup() {
   Serial.begin(9600);
+
+  pinMode(relayPin, OUTPUT);
+  digitalWrite(relayPin, HIGH); // Ensure relay is OFF
 
   lcd.init();
   lcd.backlight();
@@ -84,7 +98,7 @@ void loop() {
     } else {
       Serial.print("Temperature: ");
       Serial.print(temperatureC);
-      Serial.println(" °C");
+      Serial.println(" \xC2\xB0C");
 
       lcd.print("Temp: ");
       lcd.print(temperatureC);
@@ -103,5 +117,22 @@ void loop() {
     lcd.setCursor(0, 1);
     lcd.print("Time: ");
     lcd.print(timeStr);
+  }
+
+  // Valve control based on time
+  time_t now = time(nullptr);
+  struct tm * curTime = localtime(&now);
+
+  if (!valveOpen && curTime->tm_hour == openHour && curTime->tm_min == openMinute && curTime->tm_sec < 2) {
+    digitalWrite(relayPin, LOW); // Turn relay ON
+    valveOpen = true;
+    valveStart = currentMillis;
+    Serial.println("Valve Opened");
+  }
+
+  if (valveOpen && (currentMillis - valveStart >= valveDuration)) {
+    digitalWrite(relayPin, HIGH); // Turn relay OFF
+    valveOpen = false;
+    Serial.println("Valve Closed");
   }
 }
